@@ -1,54 +1,68 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../employee_user/models/employee_model.dart';
 import '../../providers/employee_provider.dart';
-import '../models/employee_model.dart';
 
 class AddEmployeeScreen extends StatefulWidget {
   const AddEmployeeScreen({super.key});
 
   @override
-  State<AddEmployeeScreen> createState() => _AddEmployeeScreenState();
+  State<AddEmployeeScreen> createState() =>
+      _AddEmployeeScreenState();
 }
 
-class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
+class _AddEmployeeScreenState
+    extends State<AddEmployeeScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController departmentController = TextEditingController();
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+
+  String department = "IT";
+
+  final departments = [
+    "IT",
+    "HR",
+    "Finance",
+    "Sales",
+    "Marketing",
+    "Support",
+    "Admin",
+  ];
 
   @override
   void dispose() {
     nameController.dispose();
     emailController.dispose();
-    departmentController.dispose();
     super.dispose();
   }
 
-  void saveEmployee() {
-    if (_formKey.currentState!.validate()) {
-      final provider =
-          Provider.of<EmployeeProvider>(context, listen: false);
+  Future<void> saveEmployee() async {
+    if (!_formKey.currentState!.validate()) return;
 
-      provider.addEmployee(
-        Employee(
-          id: DateTime.now().millisecondsSinceEpoch,
-          name: nameController.text.trim(),
-          email: emailController.text.trim(),
-          department: departmentController.text.trim(),
+    final employee = Employee(
+      name: nameController.text.trim(),
+      email: emailController.text.trim(),
+      department: department,
+    );
+
+    await context
+        .read<EmployeeProvider>()
+        .addEmployee(employee);
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        backgroundColor: Colors.green,
+        content: Text(
+          "Employee Added Successfully",
         ),
-      );
+      ),
+    );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Employee Added Successfully"),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      Navigator.pop(context);
-    }
+    Navigator.pop(context);
   }
 
   @override
@@ -56,26 +70,57 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Add Employee"),
+        centerTitle: true,
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
       ),
+
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
+
         child: Form(
           key: _formKey,
+
           child: Column(
             children: [
+
+              CircleAvatar(
+                radius: 45,
+                backgroundColor:
+                    Colors.indigo.withOpacity(.15),
+
+                child: const Icon(
+                  Icons.person_add,
+                  size: 45,
+                  color: Colors.indigo,
+                ),
+              ),
+
+              const SizedBox(height: 25),
+
               TextFormField(
                 controller: nameController,
-                decoration: const InputDecoration(
+
+                decoration: InputDecoration(
                   labelText: "Employee Name",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
+                  prefixIcon:
+                      const Icon(Icons.person),
+
+                  border: OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(12),
+                  ),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return "Enter employee name";
+
+                validator: (v) {
+                  if (v == null || v.isEmpty) {
+                    return "Enter Employee Name";
                   }
+
+                  if (v.length < 3) {
+                    return "Minimum 3 characters";
+                  }
+
                   return null;
                 },
               ),
@@ -84,50 +129,117 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
 
               TextFormField(
                 controller: emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
+
+                keyboardType:
+                    TextInputType.emailAddress,
+
+                decoration: InputDecoration(
                   labelText: "Email",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.email),
+
+                  prefixIcon:
+                      const Icon(Icons.email),
+
+                  border: OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(12),
+                  ),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return "Enter email";
+
+                validator: (v) {
+                  if (v == null || v.isEmpty) {
+                    return "Enter Email";
                   }
+
+                  if (!v.contains("@")) {
+                    return "Invalid Email";
+                  }
+
                   return null;
                 },
               ),
 
               const SizedBox(height: 20),
 
-              TextFormField(
-                controller: departmentController,
-                decoration: const InputDecoration(
+              DropdownButtonFormField<String>(
+                value: department,
+
+                decoration: InputDecoration(
                   labelText: "Department",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.business),
+
+                  border: OutlineInputBorder(
+                    borderRadius:
+                        BorderRadius.circular(12),
+                  ),
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return "Enter department";
-                  }
-                  return null;
+
+                items: departments
+                    .map(
+                      (e) => DropdownMenuItem(
+                        value: e,
+                        child: Text(e),
+                      ),
+                    )
+                    .toList(),
+
+                onChanged: (value) {
+                  setState(() {
+                    department = value!;
+                  });
                 },
               ),
 
-              const SizedBox(height: 30),
-
-              SizedBox(
+              const SizedBox(height: 35),
+                            SizedBox(
                 width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
+                height: 55,
+                child: ElevatedButton.icon(
                   onPressed: saveEmployee,
-                  child: const Text(
+                  icon: const Icon(Icons.save),
+                  label: const Text(
                     "SAVE EMPLOYEE",
-                    style: TextStyle(fontSize: 16),
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
+
+              const SizedBox(height: 15),
+
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  icon: const Icon(Icons.close),
+                  label: const Text(
+                    "CANCEL",
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
             ],
           ),
         ),
