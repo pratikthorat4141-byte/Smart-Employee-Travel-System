@@ -1,62 +1,122 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-
 import 'core/theme/app_theme.dart';
-import 'auth/screens/splash_screen.dart';
-import 'routes/app_router.dart';
 
 import 'providers/auth_provider.dart';
-import 'providers/employee_provider.dart';
 import 'providers/driver_provider.dart';
+import 'providers/employee_provider.dart';
 import 'providers/vehicle_provider.dart';
 import 'providers/trip_provider.dart';
+import 'providers/assignment_provider.dart';
+import 'providers/live_tracking_provider.dart';
+import 'providers/route_provider.dart';
+import 'providers/otp_provider.dart';
+import 'providers/payment_provider.dart';
 
-Future<void> main() async {
+import 'routes/app_router.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Windows/Linux Database Initialization
-  if (Platform.isWindows || Platform.isLinux) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
-
-  runApp(const SmartTravelAppWrapper());
+  runApp(
+    const SmartEmployeeTravelSystem(),
+  );
 }
 
-class SmartTravelAppWrapper extends StatelessWidget {
-  const SmartTravelAppWrapper({super.key});
+class SmartEmployeeTravelSystem extends StatelessWidget {
+  const SmartEmployeeTravelSystem({
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => EmployeeProvider()),
-        ChangeNotifierProvider(create: (_) => DriverProvider()),
-        ChangeNotifierProvider(create: (_) => VehicleProvider()),
-        ChangeNotifierProvider(create: (_) => TripProvider()),
+
+        ChangeNotifierProvider(
+          create: (_) => AuthProvider(),
+        ),
+
+        ChangeNotifierProvider(
+          create: (_) => EmployeeProvider(),
+        ),
+
+        ChangeNotifierProvider(
+          create: (_) => DriverProvider(),
+        ),
+
+        ChangeNotifierProvider(
+          create: (_) => VehicleProvider(),
+        ),
+
+        ChangeNotifierProvider(
+          create: (_) => TripProvider(),
+        ),
+                ChangeNotifierProvider(
+          create: (_) => AssignmentProvider(),
+        ),
+
+        ChangeNotifierProvider(
+          create: (_) => LiveTrackingProvider(),
+        ),
+
+        ChangeNotifierProvider(
+          create: (_) => RouteProvider(),
+        ),
+
+        ChangeNotifierProvider(
+          create: (_) => OtpProvider(),
+        ),
+
+        // PAYMENT PROVIDER
+        ChangeNotifierProvider(
+          create: (_) => PaymentProvider.instance,
+        ),
       ],
-      child: const SmartTravelApp(),
-    );
-  }
-}
 
-class SmartTravelApp extends StatelessWidget {
-  const SmartTravelApp({super.key});
+      child: MaterialApp(
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: "Smart Employee Travel System",
-      theme: AppTheme.lightTheme,
-      home: const SplashScreen(),
-      onGenerateRoute: AppRouter.generateRoute,
+        debugShowCheckedModeBanner: false,
+
+        title: "Smart Employee Travel Solution",
+
+        theme: AppTheme.lightTheme,
+
+        darkTheme: AppTheme.darkTheme,
+
+        themeMode: ThemeMode.system,
+
+        initialRoute: AppRouter.splash,
+
+        onGenerateRoute: AppRouter.generateRoute,
+                builder: (context, child) {
+
+          return MediaQuery(
+
+            data: MediaQuery.of(context).copyWith(
+              textScaler:
+                  const TextScaler.linear(1.0),
+            ),
+
+            child: GestureDetector(
+
+              behavior:
+                  HitTestBehavior.translucent,
+
+              onTap: () {
+
+                FocusManager.instance.primaryFocus
+                    ?.unfocus();
+
+              },
+
+              child: child!,
+            ),
+          );
+        },
+
+      ),
     );
   }
 }

@@ -1,62 +1,208 @@
 import 'package:flutter/material.dart';
 
-import '../database/database_helper.dart';
-import '../vehicle/models/vehicle_model.dart';
+import '../database/dao/vehicle_dao.dart';
+import '../models/vehicle_model.dart';
 
 class VehicleProvider extends ChangeNotifier {
-  final DatabaseHelper _db = DatabaseHelper.instance;
+  final VehicleDao _vehicleDao = VehicleDao.instance;
 
-  List<Vehicle> _vehicles = [];
+  List<VehicleModel> _vehicles = [];
 
-  List<Vehicle> get vehicles => _vehicles;
+  bool _isLoading = false;
 
-  VehicleProvider() {
-    loadVehicles();
-  }
+  String? _errorMessage;
 
-  Future<void> loadVehicles() async {
-    final data = await _db.getVehicles();
+  List<VehicleModel> get vehicles => List.unmodifiable(_vehicles);
 
-    _vehicles = data.map((e) => Vehicle.fromMap(e)).toList();
+  bool get isLoading => _isLoading;
 
+  String? get errorMessage => _errorMessage;
+
+  int get totalVehicles => _vehicles.length;
+
+  List<VehicleModel> get availableVehicles =>
+      _vehicles.where((v) => v.isAvailable).toList();
+
+  //==========================================================================
+  // PRIVATE
+  //==========================================================================
+
+  void _setLoading(bool value) {
+    _isLoading = value;
     notifyListeners();
   }
 
-  Future<void> addVehicle(Vehicle vehicle) async {
-    await _db.insertVehicle(vehicle.toMap());
-
-    await loadVehicles();
+  void _setError(String? value) {
+    _errorMessage = value;
+    notifyListeners();
   }
 
-  Future<void> updateVehicle(Vehicle vehicle) async {
-    await _db.updateVehicle(vehicle.toMap());
+  //==========================================================================
+  // LOAD
+  //==========================================================================
 
-    await loadVehicles();
+  Future<void> loadVehicles() async {
+    try {
+      _setLoading(true);
+
+      _vehicles = await _vehicleDao.getAll();
+
+      _setError(null);
+    } catch (e) {
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
+    }
   }
+
+  //==========================================================================
+  // ADD
+  //==========================================================================
+
+  Future<bool> addVehicle(VehicleModel vehicle) async {
+    try {
+      _setLoading(true);
+
+      final exists = await _vehicleDao.getByVehicleNumber(
+        vehicle.vehicleNumber,
+      );
+
+      if (exists != null) {
+        _setError("Vehicle number already exists.");
+        return false;
+      }
+
+      await _vehicleDao.insert(vehicle);
+
+      await loadVehicles();
+
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  //==========================================================================
+  // UPDATE
+  //==========================================================================
+
+  Future<bool> updateVehicle(VehicleModel vehicle) async {
+    try {
+      _setLoading(true);
+
+      await _vehicleDao.update(vehicle);
+
+      await loadVehicles();
+
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  //==========================================================================
+  // DELETE
+  //==========================================================================
 
   Future<void> deleteVehicle(int id) async {
-    await _db.deleteVehicle(id);
+    try {
+      _setLoading(true);
 
+      await _vehicleDao.delete(id);
+
+      await loadVehicles();
+    } catch (e) {
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  //==========================================================================
+  // SEARCH
+  //==========================================================================
+
+  Future<void> searchVehicles(String keyword) async {
+    try {
+      _setLoading(true);
+
+      if (keyword.trim().isEmpty) {
+        await loadVehicles();
+        return;
+      }
+
+      _vehicles = await _vehicleDao.search(keyword);
+
+      notifyListeners();
+    } catch (e) {
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  //==========================================================================
+  // UPDATE AVAILABILITY
+  //==========================================================================
+
+  Future<void> updateAvailability(
+    int id,
+    bool available,
+  ) async {
+    try {
+      _setLoading(true);
+
+      await _vehicleDao.updateAvailability(
+        id,
+        available,
+      );
+
+      await loadVehicles();
+    } catch (e) {
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  //==========================================================================
+  // REFRESH
+  //==========================================================================
+
+  Future<void> refresh() async {
     await loadVehicles();
   }
 
-  Future<void> searchVehicle(String keyword) async {
-    await loadVehicles();
+  //==========================================================================
+// GET VEHICLE
+//==========================================================================
 
-    if (keyword.trim().isEmpty) return;
+VehicleModel? getVehicleById(int id) {
+  try {
+    return _vehicles.firstWhere(
+      (vehicle) => vehicle.id == id,
+    );
+  } catch (_) {
+    return null;
+  }
+}
 
-    _vehicles = _vehicles.where((vehicle) {
-      return vehicle.vehicleNo
-              .toLowerCase()
-              .contains(keyword.toLowerCase()) ||
-          vehicle.type
-              .toLowerCase()
-              .contains(keyword.toLowerCase()) ||
-          vehicle.capacity
-              .toString()
-              .contains(keyword);
-    }).toList();
+VehicleModel? getVehicle(int id) {
+  return getVehicleById(id);
+}
 
+  //==========================================================================
+  // CLEAR ERROR
+  //==========================================================================
+
+  void clearError() {
+    _errorMessage = null;
     notifyListeners();
   }
 }

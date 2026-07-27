@@ -1,57 +1,187 @@
 import 'package:flutter/material.dart';
 
-import '../database/database_helper.dart';
-import '../employee_user/models/employee_model.dart';
+import '../database/dao/employee_dao.dart';
+import '../models/employee_model.dart';
 
 class EmployeeProvider extends ChangeNotifier {
-  final DatabaseHelper _db = DatabaseHelper.instance;
+  final EmployeeDao _employeeDao = EmployeeDao.instance;
 
-  List<Employee> _employees = [];
+  List<EmployeeModel> _employees = [];
 
-  List<Employee> get employees => _employees;
+  bool _isLoading = false;
 
-  EmployeeProvider() {
-    loadEmployees();
+  String? _errorMessage;
+
+  List<EmployeeModel> get employees => List.unmodifiable(_employees);
+
+  bool get isLoading => _isLoading;
+
+  String? get errorMessage => _errorMessage;
+
+  int get totalEmployees => _employees.length;
+
+  List<EmployeeModel> get activeEmployees =>
+      _employees.where((e) => e.isActive).toList();
+
+  //==========================================================================
+  // PRIVATE
+  //==========================================================================
+
+  void _setLoading(bool value) {
+    _isLoading = value;
+    notifyListeners();
   }
+
+  void _setError(String? value) {
+    _errorMessage = value;
+    notifyListeners();
+  }
+
+  //==========================================================================
+  // LOAD
+  //==========================================================================
 
   Future<void> loadEmployees() async {
-    final data = await _db.getEmployees();
+    try {
+      _setLoading(true);
 
-    _employees = data.map((e) => Employee.fromMap(e)).toList();
+      _employees = await _employeeDao.getAll();
 
-    notifyListeners();
+      _setError(null);
+    } catch (e) {
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
+    }
   }
 
-  Future<void> addEmployee(Employee employee) async {
-    await _db.insertEmployee(employee.toMap());
-    await loadEmployees();
+  //==========================================================================
+  // INSERT
+  //==========================================================================
+
+  Future<bool> addEmployee(EmployeeModel employee) async {
+    try {
+      _setLoading(true);
+
+      final exists =
+          await _employeeDao.getByEmployeeId(employee.employeeId);
+
+      if (exists != null) {
+        _setError('Employee ID already exists');
+        return false;
+      }
+
+      await _employeeDao.insert(employee);
+
+      await loadEmployees();
+
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+
+      return false;
+    } finally {
+      _setLoading(false);
+    }
   }
 
-  Future<void> updateEmployee(Employee employee) async {
-    await _db.updateEmployee(employee.toMap());
-    await loadEmployees();
+  //==========================================================================
+  // UPDATE
+  //==========================================================================
+
+  Future<bool> updateEmployee(EmployeeModel employee) async {
+    try {
+      _setLoading(true);
+
+      await _employeeDao.update(employee);
+
+      await loadEmployees();
+
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+
+      return false;
+    } finally {
+      _setLoading(false);
+    }
   }
+
+  //==========================================================================
+  // DELETE
+  //==========================================================================
 
   Future<void> deleteEmployee(int id) async {
-    await _db.deleteEmployee(id);
+    try {
+      _setLoading(true);
+
+      await _employeeDao.delete(id);
+
+      await loadEmployees();
+    } catch (e) {
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  //==========================================================================
+  // SEARCH
+  //==========================================================================
+
+  Future<void> searchEmployees(String keyword) async {
+    try {
+      _setLoading(true);
+
+      if (keyword.trim().isEmpty) {
+        await loadEmployees();
+        return;
+      }
+
+      _employees = await _employeeDao.search(keyword);
+
+      notifyListeners();
+    } catch (e) {
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  //==========================================================================
+  // REFRESH
+  //==========================================================================
+
+  Future<void> refresh() async {
     await loadEmployees();
   }
 
-  Future<void> searchEmployee(String keyword) async {
-    final data = await _db.getEmployees();
+  //==========================================================================
+  // CLEAR ERROR
+  //==========================================================================
 
-    if (keyword.trim().isEmpty) {
-      _employees = data.map((e) => Employee.fromMap(e)).toList();
-    } else {
-      _employees = data
-          .map((e) => Employee.fromMap(e))
-          .where((employee) =>
-              employee.name.toLowerCase().contains(keyword.toLowerCase()) ||
-              employee.email.toLowerCase().contains(keyword.toLowerCase()) ||
-              employee.department.toLowerCase().contains(keyword.toLowerCase()))
-          .toList();
-    }
-
+  void clearError() {
+    _errorMessage = null;
     notifyListeners();
   }
+
+ //==========================================================================
+// GET EMPLOYEE
+//==========================================================================
+
+EmployeeModel? getEmployee(int id) {
+  try {
+    return _employees.firstWhere((e) => e.id == id);
+  } catch (_) {
+    return null;
+  }
+}
+
+//==========================================================================
+// GET EMPLOYEE BY ID (Compatibility)
+//==========================================================================
+
+EmployeeModel? getEmployeeById(int id) {
+  return getEmployee(id);
+}
 }

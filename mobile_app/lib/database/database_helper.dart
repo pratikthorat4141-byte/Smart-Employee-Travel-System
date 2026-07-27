@@ -1,263 +1,440 @@
+import 'seed_data.dart';
+
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
-class DatabaseHelper {
-  DatabaseHelper._();
+import '../core/constants/app_constants.dart';
 
-  static final DatabaseHelper instance = DatabaseHelper._();
+import 'tables/user_table.dart';
+import 'tables/employee_table.dart';
+import 'tables/driver_table.dart';
+import 'tables/vehicle_table.dart';
+import 'tables/trip_table.dart';
+import 'tables/live_tracking_table.dart';
+import 'tables/otp_table.dart';
+import 'tables/password_reset_otp_table.dart';
+import 'tables/payment_table.dart';
+
+class DatabaseHelper {
+  DatabaseHelper._internal();
+
+  static final DatabaseHelper instance =
+      DatabaseHelper._internal();
 
   static Database? _database;
 
   Future<Database> get database async {
-    _database ??= await _initDatabase();
+    if (_database != null) {
+      return _database!;
+    }
+
+    _database = await _initializeDatabase();
+
     return _database!;
   }
 
-  Future<Database> _initDatabase() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, "smart_employee_travel.db");
+  Future<Database> _initializeDatabase() async {
+    final dbPath =
+        await getDatabasesPath();
+
+    final path = join(
+      dbPath,
+      AppConstants.databaseName,
+    );
 
     return await openDatabase(
       path,
-      version: 2,
+      version:
+          AppConstants.databaseVersion,
+      onConfigure: _onConfigure,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
+      onOpen: _onOpen,
     );
   }
 
-  Future<void> _onCreate(Database db, int version) async {
-    // ================= USERS =================
+  //==========================================================
+  // CONFIGURE DATABASE
+  //==========================================================
 
-    await db.execute('''
-      CREATE TABLE users(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        role TEXT NOT NULL
-      )
-    ''');
-
-    // Default Admin
-    await db.insert("users", {
-      "name": "Pratik Thorat",
-      "email": "admin@travel.com",
-      "password": "admin123",
-      "role": "Admin",
-    });
-
-    // ================= EMPLOYEES =================
-
-    await db.execute('''
-      CREATE TABLE employees(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL,
-        department TEXT NOT NULL
-      )
-    ''');
-
-    // ================= DRIVERS =================
-
-    await db.execute('''
-      CREATE TABLE drivers(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        licenseNo TEXT NOT NULL
-      )
-    ''');
-
-    // ================= VEHICLES =================
-
-    await db.execute('''
-      CREATE TABLE vehicles(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        vehicleNo TEXT NOT NULL,
-        type TEXT NOT NULL,
-        capacity INTEGER NOT NULL
-      )
-    ''');
-
-    // ================= TRIPS =================
-
-    await db.execute('''
-      CREATE TABLE trips(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        employee TEXT NOT NULL,
-        driver TEXT NOT NULL,
-        vehicle TEXT NOT NULL,
-        source TEXT NOT NULL,
-        destination TEXT NOT NULL,
-        status TEXT NOT NULL
-      )
-    ''');
+  Future<void> _onConfigure(
+    Database db,
+  ) async {
+    await db.execute(
+      'PRAGMA foreign_keys = ON',
+    );
   }
 
-  // ======================================================
-  // AUTH
-  // ======================================================
+  //==========================================================
+  // DATABASE OPEN
+  //==========================================================
 
-  Future<int> registerUser(Map<String, dynamic> data) async {
-    final db = await database;
-    return await db.insert("users", data);
+  Future<void> _onOpen(
+    Database db,
+  ) async {}
+
+  //==========================================================
+  // DATABASE CREATE
+  //==========================================================
+
+  Future<void> _onCreate(
+    Database db,
+    int version,
+  ) async {
+        //-----------------------------------------
+    // USERS
+    //-----------------------------------------
+
+    await db.execute(
+      UserTable.createTable,
+    );
+
+    //-----------------------------------------
+    // EMPLOYEES
+    //-----------------------------------------
+
+    await db.execute(
+      EmployeeTable.createTable,
+    );
+
+    //-----------------------------------------
+    // DRIVERS
+    //-----------------------------------------
+
+    await db.execute(
+      DriverTable.createTable,
+    );
+
+    //-----------------------------------------
+    // VEHICLES
+    //-----------------------------------------
+
+    await db.execute(
+      VehicleTable.createTable,
+    );
+
+    //-----------------------------------------
+    // TRIPS
+    //-----------------------------------------
+
+    await db.execute(
+      TripTable.createTable,
+    );
+
+    //-----------------------------------------
+    // LIVE TRACKING
+    //-----------------------------------------
+
+    await db.execute(
+      LiveTrackingTable.createTable,
+    );
+
+    //-----------------------------------------
+    // OTP
+    //-----------------------------------------
+
+    await db.execute(
+      OtpTable.createTable,
+    );
+
+    //-----------------------------------------
+    // PASSWORD RESET OTP
+    //-----------------------------------------
+
+    await db.execute(
+      PasswordResetOtpTable.createTable,
+    );
+
+    //-----------------------------------------
+    // PAYMENTS
+    //-----------------------------------------
+
+    await db.execute(
+      PaymentTable.createTable,
+    );
+
+    //-----------------------------------------
+    // DEFAULT DATA
+    //-----------------------------------------
+
+    await SeedData.insertDefaultData(
+      db,
+    );
   }
 
-  Future<Map<String, dynamic>?> loginUser(
-    String email,
-    String password,
+  //==========================================================
+  // DATABASE UPGRADE
+  //==========================================================
+
+  Future<void> _onUpgrade(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+        //-----------------------------------------
+    // VERSION 2
+    //-----------------------------------------
+
+    if (oldVersion < 2) {
+      await db.execute(
+        LiveTrackingTable.createTable,
+      );
+    }
+
+    //-----------------------------------------
+    // VERSION 3
+    //-----------------------------------------
+
+    if (oldVersion < 3) {
+      await db.execute(
+        OtpTable.createTable,
+      );
+    }
+
+    //-----------------------------------------
+    // VERSION 4
+    //-----------------------------------------
+
+    if (oldVersion < 4) {
+      await db.execute('''
+ALTER TABLE ${UserTable.tableName}
+ADD COLUMN ${UserTable.mobile} TEXT
+''');
+    }
+
+    //-----------------------------------------
+    // VERSION 5
+    //-----------------------------------------
+
+    if (oldVersion < 5) {
+      await db.execute(
+        PasswordResetOtpTable.createTable,
+      );
+    }
+
+    //-----------------------------------------
+    // VERSION 6
+    //-----------------------------------------
+
+    if (oldVersion < 6) {
+      await db.execute(
+        PaymentTable.createTable,
+      );
+    }
+  }
+
+  //==========================================================
+  // CLOSE DATABASE
+  //==========================================================
+
+  Future<void> closeDatabase() async {
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+  }
+
+  //==========================================================
+  // DELETE DATABASE
+  //==========================================================
+
+  Future<void> deleteDatabaseFile() async {
+    final dbPath =
+        await getDatabasesPath();
+
+    final path = join(
+      dbPath,
+      AppConstants.databaseName,
+    );
+
+    await deleteDatabase(path);
+
+    _database = null;
+  }
+    //==========================================================
+  // CLEAR TABLE
+  //==========================================================
+
+  Future<void> clearTable(
+    String tableName,
   ) async {
     final db = await database;
 
-    final result = await db.query(
-      "users",
-      where: "email=? AND password=?",
-      whereArgs: [email, password],
+    await db.delete(tableName);
+  }
+
+  //==========================================================
+  // CLEAR ALL TABLES
+  //==========================================================
+
+  Future<void> clearAllTables() async {
+    final db = await database;
+
+    await db.transaction((txn) async {
+
+      await txn.delete(
+        TripTable.tableName,
+      );
+
+      await txn.delete(
+        LiveTrackingTable.tableName,
+      );
+
+      await txn.delete(
+        OtpTable.tableName,
+      );
+
+      await txn.delete(
+        PasswordResetOtpTable.tableName,
+      );
+
+      await txn.delete(
+        PaymentTable.tableName,
+      );
+
+      await txn.delete(
+        EmployeeTable.tableName,
+      );
+
+      await txn.delete(
+        DriverTable.tableName,
+      );
+
+      await txn.delete(
+        VehicleTable.tableName,
+      );
+
+      await txn.delete(
+        UserTable.tableName,
+      );
+    });
+  }
+
+  //==========================================================
+  // ROW COUNT
+  //==========================================================
+
+  Future<int> getRowCount(
+    String tableName,
+  ) async {
+    final db = await database;
+
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) FROM $tableName',
     );
 
-    if (result.isEmpty) {
-      return null;
-    }
-
-    return result.first;
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 
-  // ======================================================
-  // EMPLOYEE
-  // ======================================================
+  //==========================================================
+  // TABLE EXISTS
+  //==========================================================
 
-  Future<int> insertEmployee(Map<String, dynamic> data) async {
-    final db = await database;
-    return await db.insert("employees", data);
-  }
-
-  Future<List<Map<String, dynamic>>> getEmployees() async {
-    final db = await database;
-    return await db.query("employees");
-  }
-
-  Future<int> updateEmployee(Map<String, dynamic> data) async {
+  Future<bool> tableExists(
+    String tableName,
+  ) async {
     final db = await database;
 
-    return await db.update(
-      "employees",
-      data,
-      where: "id=?",
-      whereArgs: [data["id"]],
+    final result = await db.rawQuery(
+      '''
+SELECT name
+FROM sqlite_master
+WHERE type='table'
+AND name=?
+''',
+      [tableName],
     );
+
+    return result.isNotEmpty;
   }
 
-  Future<int> deleteEmployee(int id) async {
+  //==========================================================
+  // RAW EXECUTE
+  //==========================================================
+
+  Future<void> executeRawQuery(
+    String sql,
+  ) async {
     final db = await database;
 
-    return await db.delete(
-      "employees",
-      where: "id=?",
-      whereArgs: [id],
-    );
+    await db.execute(sql);
   }
 
-  // ======================================================
-  // DRIVER
-  // ======================================================
+  //==========================================================
+  // RAW QUERY
+  //==========================================================
 
-  Future<int> insertDriver(Map<String, dynamic> data) async {
-    final db = await database;
-    return await db.insert("drivers", data);
-  }
-
-  Future<List<Map<String, dynamic>>> getDrivers() async {
-    final db = await database;
-    return await db.query("drivers");
-  }
-
-  Future<int> updateDriver(Map<String, dynamic> data) async {
+  Future<List<Map<String, dynamic>>> rawQuery(
+    String sql, [
+    List<Object?>? arguments,
+  ]) async {
     final db = await database;
 
-    return await db.update(
-      "drivers",
-      data,
-      where: "id=?",
-      whereArgs: [data["id"]],
-    );
-  }
-
-  Future<int> deleteDriver(int id) async {
-    final db = await database;
-
-    return await db.delete(
-      "drivers",
-      where: "id=?",
-      whereArgs: [id],
-    );
-  }
-
-  // ======================================================
-  // VEHICLE
-  // ======================================================
-
-  Future<int> insertVehicle(Map<String, dynamic> data) async {
-    final db = await database;
-    return await db.insert("vehicles", data);
-  }
-
-  Future<List<Map<String, dynamic>>> getVehicles() async {
-    final db = await database;
-    return await db.query("vehicles");
-  }
-
-  Future<int> updateVehicle(Map<String, dynamic> data) async {
-    final db = await database;
-
-    return await db.update(
-      "vehicles",
-      data,
-      where: "id=?",
-      whereArgs: [data["id"]],
-    );
-  }
-
-  Future<int> deleteVehicle(int id) async {
-    final db = await database;
-
-    return await db.delete(
-      "vehicles",
-      where: "id=?",
-      whereArgs: [id],
+    return await db.rawQuery(
+      sql,
+      arguments,
     );
   }
 
-  // ======================================================
-  // TRIP
-  // ======================================================
+  //==========================================================
+  // RAW INSERT
+  //==========================================================
 
-  Future<int> insertTrip(Map<String, dynamic> data) async {
-    final db = await database;
-    return await db.insert("trips", data);
-  }
-
-  Future<List<Map<String, dynamic>>> getTrips() async {
-    final db = await database;
-    return await db.query("trips");
-  }
-
-  Future<int> updateTrip(Map<String, dynamic> data) async {
+  Future<int> rawInsert(
+    String sql, [
+    List<Object?>? arguments,
+  ]) async {
     final db = await database;
 
-    return await db.update(
-      "trips",
-      data,
-      where: "id=?",
-      whereArgs: [data["id"]],
+    return await db.rawInsert(
+      sql,
+      arguments,
     );
   }
 
-  Future<int> deleteTrip(int id) async {
+  //==========================================================
+  // RAW UPDATE
+  //==========================================================
+
+  Future<int> rawUpdate(
+    String sql, [
+    List<Object?>? arguments,
+  ]) async {
     final db = await database;
 
-    return await db.delete(
-      "trips",
-      where: "id=?",
-      whereArgs: [id],
+    return await db.rawUpdate(
+      sql,
+      arguments,
+    );
+  }
+
+  //==========================================================
+  // RAW DELETE
+  //==========================================================
+
+  Future<int> rawDelete(
+    String sql, [
+    List<Object?>? arguments,
+  ]) async {
+    final db = await database;
+
+    return await db.rawDelete(
+      sql,
+      arguments,
+    );
+  }
+
+  //==========================================================
+  // TRANSACTION
+  //==========================================================
+
+  Future<T> transaction<T>(
+    Future<T> Function(Transaction txn) action,
+  ) async {
+    final db = await database;
+
+    return await db.transaction(
+      action,
     );
   }
 }
